@@ -688,11 +688,23 @@ When referencing tasks, mention their ID (e.g. TASK-001) and title.
 If asked for recommendations, be direct and actionable.
 Here is the current task data:\n\n${buildTaskContext()}`;
 
+    let apiKey = localStorage.getItem('anthropic_key');
+    if(!apiKey){
+      apiKey = prompt('Enter your Anthropic API key to enable the AI Assistant:');
+      if(!apiKey){ document.getElementById(thinkId)?.remove(); document.getElementById('aiSend').disabled=false; return; }
+      localStorage.setItem('anthropic_key', apiKey);
+    }
+
     const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-sonnet-4-6',
         max_tokens: 1000,
         system: systemPrompt,
         messages: chatHistory,
@@ -700,6 +712,7 @@ Here is the current task data:\n\n${buildTaskContext()}`;
     });
 
     const data = await res.json();
+    if(res.status === 401){ localStorage.removeItem('anthropic_key'); throw new Error('Invalid API key'); }
     const reply = data.content?.map(b=>b.text||'').join('') || 'Sorry, I could not get a response.';
 
     chatHistory.push({ role:'assistant', content: reply });
